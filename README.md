@@ -13,26 +13,34 @@ A streamlined library for pretraining VLA models, derived from LeRobot, used to 
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-  - [Option 1: Conda Environment (Recommended)](#option-1-conda-environment-recommended)
+  - [Conda Environment (Recommended)](#conda-environment-recommended)
 - [Setup](#setup)
-- [Usage](#usage)
+- [Pre-reqs](#pre-reqs)
+- [Usage for multiple datasets](#usage)
   - [Basic Training](#basic-training)
   - [Multi-GPU Training](#multi-gpu-training)
   - [SLURM Cluster Training](#slurm-cluster-training)
+  - [Resume Training](#resume-training)
 - [Logging Options](#logging-options)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
+- [Citation](#citation)
 - [Additional Resources](#additional-resources)
+
+> Note on video backends
+>
+> By default we avoid pinning system FFmpeg in the environment to prevent compatibility issues with TorchCodec on some systems. The training pipeline works with alternative video backends (PyAV, OpenCV, ImageIO). If you specifically need TorchCodec, install FFmpeg in your environment and ensure the FFmpeg libraries match TorchCodec's compatibility table. Otherwise, set `--dataset.video_backend=pyav` (default) or switch to OpenCV/ImageIO in your data loader.
 
 ## Features
 
 It is directly compatible with the https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1 and https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2 that are used to pretrain smolvla. Note that, while this library can be efficient for pretraining, for finetuning we recommend using lerobot as it is more up-to-date with the inference pipeline and new hardware being added to lerobot. 
 
-- 🚀 **Optimized for Pretraining**: Removed environment/evaluation dependencies for faster, cleaner pretraining
-- 📊 **Dual Logging Support**: Choose between WandB or TrackIO for experiment tracking
-- 🔧 **Multi-GPU Training**: Optimized for distributed training with Accelerate
-- 🎯 **SmolVLA2 Focus**: Specialized for SmolVLA2 model architecture
-- 🧹 **Clean Codebase**: Removed unused components for better maintainability
+
+- **Pretraining-Focused**: Streamlined codebase for VLA pretraining workflows—environment simulation and evaluation dependencies removed for cleaner pretraining on real-world data pipelines
+- **Simple Setup**: Single-command environment creation with `conda env create -f environment.yml`
+- **Distributed Training**: Multi-GPU and multi-node support via Accelerate, tested on single machines and SLURM clusters
+- **Multi-Dataset Training**: Train on multiple datasets with configurable sampling strategies and automatic data loading
+- **Reduced Dependencies**: Smaller footprint than full robotics frameworks—faster installation and fewer potential conflicts
 
 ## Prerequisites
 
@@ -94,7 +102,7 @@ Test that everything is set up correctly:
 
 ```bash
 # Activate your environment
-conda activate lerobot  # or source venv/bin/activate for venv
+conda activate vlab # or source venv/bin/activate for venv
 
 # Verify Python path
 python -c "import sys; print('\n'.join(sys.path))" | grep VLAb || python -c "import sys; print('\n'.join(sys.path))"
@@ -111,35 +119,53 @@ python -c "from lerobot.datasets.factory import make_dataset; print('✓ Dataset
 # Login to HuggingFace (if you need to download/upload models/datasets)
 huggingface-cli login
 ```
+## Pre-reqs 
+
+We pretrain directly on community datasets hosted on the Hugging Face Hub. These datasets have been cleaned and preprocessed for training:
+
+- Community v1: https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1
+- Community v2: https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2
+
+For dataset details, statistics, and structure, see the dataset cards!
+
+```bash
+# Download v2.1 (recommended)
+huggingface-cli download HuggingFaceVLA/community_dataset_v1 \
+  --local-dir /path/to/local/datasets/community_dataset_v1
+
+# Download older v2.0
+huggingface-cli download HuggingFaceVLA/community_dataset_v2 \
+  --local-dir /path/to/local/datasets/community_dataset_v2
+```
+
+To train from the Hub without pre-downloading, pass just the repo id; to use a specific snapshot, add `--dataset.revision`.
 
 ## Usage
 
 ### Basic Training
 
-Train a SmolVLA2 model on a single dataset:
+Train a SmolVLA2 model on multiple datasets on one GPU using Weights & Biases:
 
 ```bash
-# Activate environment
-conda activate lerobot
 
-# Train with WandB logging
+# Train with WandB logging on multiple datasets stored locally
 python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="your-username/your-dataset" \
-    --dataset.root="/path/to/local/datasets" \
+    --dataset.repo_id="hf_username1/hf_data_1,hf_username2/hf_data_2,hf_username3/hf_data_3" \
+    --dataset.root="/path/to/local/datasets/community_dataset_v1" \
     --output_dir="./outputs/training" \
     --batch_size=8 \
     --steps=50000 \
     --wandb.enable=true \
     --wandb.project="smolvla2-training"
 ```
-
+Train with WandB logging on multiple datasets downloading directly from the Hub:
 ### Train with Multiple Datasets
 
 ```bash
 python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="dataset1,dataset2,dataset3" \
+    --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
     --dataset.root="/path/to/local/datasets" \
     --output_dir="./outputs/multi_dataset_training" \
     --batch_size=8 \
@@ -150,16 +176,42 @@ python src/lerobot/scripts/train.py \
 
 ### Multi-GPU Training
 
-For multi-GPU training on a single machine, use Accelerate:
+Using Accelerate to train with WandB logging on multiple datasets stored locally:
 
 ```bash
 # First, configure accelerate
 accelerate config
 
-# Then launch training
+# Then launch training on local datasets
 accelerate launch src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="your-dataset" \
+    --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
+    --dataset.root="/path/to/local/datasets" \
+    --output_dir="./outputs/multi_gpu_training" \
+    --batch_size=8 \
+    --steps=200000 \
+    --wandb.enable=true \
+    --wandb.project="smolvla2-training"
+```
+
+You can also train on a generated list of dataset paths by creating a script that outputs comma-separated repo IDs. This way you can train on a combination of community_dataset_v1 and community_dataset_v2. 
+
+```bash
+# Generate dataset list dynamically
+DATASET_LIST=$(python -c "
+import os
+datasets = []
+for root, dirs, files in os.walk('/path/to/local/datasets'):
+    if 'data.parquet' in files:
+        rel_path = os.path.relpath(root, '/path/to/local/datasets')
+        datasets.append(rel_path.replace('/', '/'))
+print(','.join(datasets))
+")
+
+# Train with generated list
+accelerate launch src/lerobot/scripts/train.py \
+    --policy.type=smolvla2 \
+    --dataset.repo_id="$DATASET_LIST" \
     --dataset.root="/path/to/local/datasets" \
     --output_dir="./outputs/multi_gpu_training" \
     --batch_size=8 \
@@ -189,6 +241,40 @@ sbatch scripts/training/train_smolvla_optimized_fresh.slurm
 squeue -u $USER
 tail -f logs/smolvla_optimized_4gpu_fresh_*.out
 ```
+
+### Resume Training
+
+If your training is interrupted, you can resume from the last checkpoint:
+
+```bash
+# Resume from a specific checkpoint directory
+python src/lerobot/scripts/train.py \
+    --resume=true \
+    --config_path="./outputs/previous_training/checkpoints/last/pretrained_model/train_config.json" \
+    --output_dir="./outputs/previous_training"
+```
+
+For SLURM cluster resuming, use the provided resume script:
+
+```bash
+# Edit the resume script to set your checkpoint path
+vim scripts/training/train_smolvla_resume.slurm
+
+# Update these variables in the script:
+# - RESUME_FROM_CHECKPOINT="/path/to/your/checkpoint"
+# - REPO_IDS="your,dataset,list"
+# - WANDB_RUN_ID="your_existing_run_id" (optional)
+
+# Submit the resume job
+sbatch scripts/training/train_smolvla_resume.slurm
+```
+
+**Important Notes:**
+- The checkpoint must contain `checkpoints/last/pretrained_model/train_config.json`
+- All model weights, optimizer state, and scheduler state will be restored
+- WandB run can be resumed by setting `WANDB_RUN_ID` and `WANDB_RESUME=must`
+- Training will continue from the exact step where it was interrupted
+
 
 ## Logging Options
 

@@ -16,7 +16,7 @@ mkdir -p /fsx/dana_aubakirova/vla/logs
 
 # Activate conda environment
 source /fsx/dana_aubakirova/miniconda/etc/profile.d/conda.sh
-conda activate lerobot
+conda activate vlab
 
 # Add local VLAb source to Python path
 export PYTHONPATH="/fsx/dana_aubakirova/vla/VLAb/src:$PYTHONPATH"
