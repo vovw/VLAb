@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="src/lerobot/VLA-6.png" alt="Logo" width="300">
+<img src="VLAb.png" alt="Logo" width="300">
 
-# Your Laboratory for Pretraining VLAs 
+# VLAb: Your Laboratory for Pretraining VLAs 
 
 A streamlined library for pretraining VLA models, derived from LeRobot, used to pretrain SmolVLA but focused specifically on pretraining workflows. This library enables efficient training of vision-language-action models for robotics applications.
 
@@ -21,9 +21,7 @@ A streamlined library for pretraining VLA models, derived from LeRobot, used to 
   - [Multi-GPU Training](#multi-gpu-training)
   - [SLURM Cluster Training](#slurm-cluster-training)
   - [Resume Training](#resume-training)
-- [Logging Options](#logging-options)
 - [Configuration](#configuration)
-- [Troubleshooting](#troubleshooting)
 - [Citation](#citation)
 - [Additional Resources](#additional-resources)
 
@@ -78,7 +76,7 @@ cd /path/to/VLAb
 
 # Create the environment from the provided file
 conda env create -f environment.yml
-conda activate lerobot
+conda activate vlab
 
 # If your system uses CUDA 12.1, edit environment.yml and set:
 #   pytorch-cuda=12.1
@@ -123,8 +121,8 @@ huggingface-cli login
 
 We pretrain directly on community datasets hosted on the Hugging Face Hub. These datasets have been cleaned and preprocessed for training:
 
-- Community v1: https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1
-- Community v2: https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2
+- **[Community Dataset v1](https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1)**: 128 datasets from 55 contributors (11K episodes, 46.9 hours)
+- **[Community Dataset v2](https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2)**: Updated collection with v2.0/v2.1 format support
 
 For dataset details, statistics, and structure, see the dataset cards!
 
@@ -153,6 +151,7 @@ python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
     --dataset.repo_id="hf_username1/hf_data_1,hf_username2/hf_data_2,hf_username3/hf_data_3" \
     --dataset.root="/path/to/local/datasets/community_dataset_v1" \
+    --dataset.video_backend=pyav \
     --output_dir="./outputs/training" \
     --batch_size=8 \
     --steps=50000 \
@@ -167,6 +166,7 @@ python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
     --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
     --dataset.root="/path/to/local/datasets" \
+    --dataset.video_backend=pyav \
     --output_dir="./outputs/multi_dataset_training" \
     --batch_size=8 \
     --steps=200000 \
@@ -187,6 +187,7 @@ accelerate launch src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
     --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
     --dataset.root="/path/to/local/datasets" \
+    --dataset.video_backend=pyav \
     --output_dir="./outputs/multi_gpu_training" \
     --batch_size=8 \
     --steps=200000 \
@@ -213,6 +214,7 @@ accelerate launch src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
     --dataset.repo_id="$DATASET_LIST" \
     --dataset.root="/path/to/local/datasets" \
+    --dataset.video_backend=pyav \
     --output_dir="./outputs/multi_gpu_training" \
     --batch_size=8 \
     --steps=200000 \
@@ -251,6 +253,7 @@ If your training is interrupted, you can resume from the last checkpoint:
 python src/lerobot/scripts/train.py \
     --resume=true \
     --config_path="./outputs/previous_training/checkpoints/last/pretrained_model/train_config.json" \
+    --dataset.video_backend=pyav \
     --output_dir="./outputs/previous_training"
 ```
 
@@ -276,58 +279,6 @@ sbatch scripts/training/train_smolvla_resume.slurm
 - Training will continue from the exact step where it was interrupted
 
 
-## Logging Options
-
-### WandB (Weights & Biases)
-
-For cloud-based experiment tracking:
-
-```bash
-# Set up WandB (first time)
-wandb login
-
-# Training with WandB
-python src/lerobot/scripts/train.py \
-    --policy.type=smolvla2 \
-    --dataset.repo_id="your-dataset" \
-    --dataset.root="/path/to/local/datasets" \
-    --output_dir="./outputs/training" \
-    --wandb.enable=true \
-    --wandb.project="your-project" \
-    --wandb.entity="your-entity" \
-    --wandb.notes="Training notes"
-```
-
-### TrackIO (Local-first)
-
-For local experiment tracking:
-
-```bash
-# Training with TrackIO
-python src/lerobot/scripts/train.py \
-    --policy.type=smolvla2 \
-    --dataset.repo_id="your-dataset" \
-    --dataset.root="/path/to/local/datasets" \
-    --output_dir="./outputs/training" \
-    --trackio.enable=true \
-    --trackio.project="your-project" \
-    --trackio.notes="Training notes"
-
-# View results locally
-trackio show
-```
-
-### Local Only (No Logging)
-
-```bash
-python src/lerobot/scripts/train.py \
-    --policy.type=smolvla2 \
-    --dataset.repo_id="your-dataset" \
-    --dataset.root="/path/to/local/datasets" \
-    --output_dir="./outputs/training" \
-    --wandb.enable=false \
-    --trackio.enable=false
-```
 
 ## Configuration
 
@@ -377,55 +328,10 @@ python src/lerobot/scripts/train.py \
     --output_dir="./outputs/previous_training"
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: `ModuleNotFoundError: No module named 'lerobot'`
-
-**Solution**: Ensure PYTHONPATH is set correctly:
-```bash
-export PYTHONPATH="/path/to/VLAb/src:$PYTHONPATH"
-```
-
-**Issue**: CUDA out of memory
-
-**Solution**: Reduce batch size or enable gradient accumulation:
-```bash
---batch_size=4  # Reduce from default 8
---gradient_accumulation_steps=2  # Accumulate gradients
-```
-
-**Issue**: Import errors with PyAV/AV
-
-**Solution**: Reinstall PyAV:
-```bash
-conda activate lerobot
-pip uninstall av
-pip install av>=14.2.0
-```
-
-**Issue**: WandB/TrackIO not working
-
-**Solution**: Verify installation and authentication:
-```bash
-# For WandB
-wandb login
-
-# For TrackIO
-pip install trackio
-trackio --version
-```
-
-### Getting Help
-
-- Check the logs in `logs/` directory for detailed error messages
-- Verify your conda environment is activated: `conda info --envs`
-- Ensure all dependencies are installed: `conda list` or `pip list`
-- Check CUDA availability: `python -c "import torch; print(torch.cuda.is_available())"`
 
 ## Additional Resources
 
+- **[LeRobot GitHub](https://github.com/huggingface/lerobot)**: Main LeRobot repository
 - **LeRobot Installation Guide**: https://huggingface.co/docs/lerobot/en/installation
 - **LeRobot Documentation**: https://huggingface.co/docs/lerobot
 - **HuggingFace Hub**: https://huggingface.co/
