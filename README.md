@@ -2,9 +2,9 @@
 
 <img src="src/lerobot/VLA-6.png" alt="Logo" width="300">
 
-# SmolVLA2 Pretraining Library
+# Your Laboratory for Pretraining VLAs 
 
-A streamlined library for pretraining SmolVLA2 models, derived from LeRobot but focused specifically on pretraining workflows. This library enables efficient training of vision-language-action models for robotics applications.
+A streamlined library for pretraining VLA models, derived from LeRobot, used to pretrain SmolVLA but focused specifically on pretraining workflows. This library enables efficient training of vision-language-action models for robotics applications.
 
 </div>
 
@@ -14,7 +14,6 @@ A streamlined library for pretraining SmolVLA2 models, derived from LeRobot but 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Option 1: Conda Environment (Recommended)](#option-1-conda-environment-recommended)
-  - [Option 2: Pip Installation](#option-2-pip-installation)
 - [Setup](#setup)
 - [Usage](#usage)
   - [Basic Training](#basic-training)
@@ -26,6 +25,8 @@ A streamlined library for pretraining SmolVLA2 models, derived from LeRobot but 
 - [Additional Resources](#additional-resources)
 
 ## Features
+
+It is directly compatible with the https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1 and https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2 that are used to pretrain smolvla. Note that, while this library can be efficient for pretraining, for finetuning we recommend using lerobot as it is more up-to-date with the inference pipeline and new hardware being added to lerobot. 
 
 - 🚀 **Optimized for Pretraining**: Removed environment/evaluation dependencies for faster, cleaner pretraining
 - 📊 **Dual Logging Support**: Choose between WandB or TrackIO for experiment tracking
@@ -61,52 +62,21 @@ nvcc --version  # or nvidia-smi
 # Note: Adjust PyTorch installation based on your CUDA version
 ```
 
-#### Step 2: Create the Conda Environment
+#### Step 2: Create the Conda Environment from environment.yml
 
 ```bash
 # Navigate to the project directory
 cd /path/to/VLAb
 
-# Create a conda environment
-conda create -n lerobot python=3.10
+# Create the environment from the provided file
+conda env create -f environment.yml
 conda activate lerobot
 
-# Install PyTorch with CUDA support (adjust version as needed)
-conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia  # For CUDA 11.8
-# OR for CUDA 12.1:
-# conda install pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia
-
-# Install other dependencies
-conda install -c conda-forge ffmpeg
+# If your system uses CUDA 12.1, edit environment.yml and set:
+#   pytorch-cuda=12.1
 ```
 
-#### Step 3: Install Python Dependencies
-
-```bash
-# Ensure you're in the activated environment
-conda activate lerobot
-
-# Install core dependencies
-pip install transformers>=4.50.3
-pip install accelerate>=1.7.0
-pip install datasets>=2.19.0
-pip install av>=14.2.0  # PyAV for video processing
-pip install safetensors>=0.4.3
-pip install draccus==0.10.0
-pip install huggingface-hub[hf-transfer,cli]>=0.27.1
-pip install termcolor>=2.4.0
-pip install einops>=0.8.0
-pip install imageio[ffmpeg]>=2.34.0
-pip install jsonlines>=4.0.0
-pip install deepdiff>=7.0.1
-pip install packaging>=24.2
-
-# Optional: Install logging backends
-pip install wandb>=0.16.3      # For WandB logging
-pip install trackio>=0.7.0     # For TrackIO logging
-```
-
-#### Step 4: Set Up Python Path
+#### Step 3: Set Up Python Path
 
 ```bash
 # Set the PYTHONPATH to include the source directory
@@ -114,39 +84,6 @@ export PYTHONPATH="/path/to/VLAb/src:$PYTHONPATH"
 
 # Add this to your ~/.bashrc or ~/.zshrc for persistence:
 echo 'export PYTHONPATH="/path/to/VLAb/src:$PYTHONPATH"' >> ~/.bashrc
-```
-
-### Option 2: Pip Installation
-
-If you prefer using pip only:
-
-```bash
-# Create a virtual environment (recommended)
-python3.10 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install core dependencies
-pip install torch>=2.2.1 torchvision>=0.21.0 --index-url https://download.pytorch.org/whl/cu118
-pip install transformers>=4.50.3
-pip install accelerate>=1.7.0
-pip install datasets>=2.19.0
-pip install av>=14.2.0  # PyAV for video processing
-pip install safetensors>=0.4.3
-pip install draccus==0.10.0
-pip install huggingface-hub[hf-transfer,cli]>=0.27.1
-pip install termcolor>=2.4.0
-pip install einops>=0.8.0
-pip install imageio[ffmpeg]>=2.34.0
-pip install jsonlines>=4.0.0
-pip install deepdiff>=7.0.1
-pip install packaging>=24.2
-
-# Optional: Install logging backends
-pip install wandb>=0.16.3      # For WandB logging
-pip install trackio>=0.7.0     # For TrackIO logging
-
-# Set up Python path
-export PYTHONPATH="/path/to/VLAb/src:$PYTHONPATH"
 ```
 
 ## Setup
@@ -407,6 +344,24 @@ trackio --version
 - **LeRobot Documentation**: https://huggingface.co/docs/lerobot
 - **HuggingFace Hub**: https://huggingface.co/
 - **Accelerate Documentation**: https://huggingface.co/docs/accelerate
+
+## Citation
+
+If you use this library or models trained with it in your research, please cite the SmolVLA paper:
+
+Shukor, M., Aubakirova, D., Capuano, F., Kooijmans, P., Palma, S., Zouitine, A., Aractingi, M., Pascal, C., Russi, M., Marafioti, A., Alibert, S., Cord, M., Wolf, T., Cadene, R. (2025). SmolVLA: A vision-language-action model for affordable and efficient robotics. Available at: https://arxiv.org/pdf/2506.01844
+
+```bibtex
+@article{shukor2025smolvla,
+  title   = {SmolVLA: A vision-language-action model for affordable and efficient robotics},
+  author  = {Shukor, Mustafa and Aubakirova, Dana and Capuano, Francesco and Kooijmans, Pepijn and Palma, Steven and Zouitine, Adil and Aractingi, Michel and Pascal, Caroline and Russi, Martino and Marafioti, Andres and Alibert, Simon and Cord, Matthieu and Wolf, Thomas and Cadene, Remi},
+  year    = {2025},
+  journal = {arXiv preprint},
+  eprint  = {2506.01844},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.RO}
+}
+```
 
 ## File Structure
 
