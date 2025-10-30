@@ -2,9 +2,9 @@
 
 <img src="VLAb.png" alt="Logo" width="300">
 
-# VLAb: Your Laboratory for Pretraining VLAs 
+# Your Laboratory for Pretraining VLAs 
 
-A streamlined library for pretraining VLA models, derived from LeRobot, used to pretrain SmolVLA but focused specifically on pretraining workflows. This library enables efficient training of vision-language-action models for robotics applications.
+A streamlined library for pretraining VLA models, derived from LeRobot, used to pretrain SmolVLA but focused specifically on pretraining workflows. This library enables efficient pretraining of vision-language-action models on a cluster, multi-gpu setups and on multiple datasets for robotics applications.
 
 </div>
 
@@ -117,9 +117,11 @@ python -c "from lerobot.datasets.factory import make_dataset; print('✓ Dataset
 # Login to HuggingFace (if you need to download/upload models/datasets)
 huggingface-cli login
 ```
-## Pre-reqs 
+## Get the data
 
-We pretrain directly on community datasets hosted on the Hugging Face Hub. These datasets have been cleaned and preprocessed for training:
+This README uses SmolVLA pretraining datasets as examples, but VLAb supports any LeRobot-format datasets from Hugging Face Hub. Pass multiple datasets as comma-separated repository IDs (e.g., `username/dataset1,username/dataset2`).
+
+VLAb works directly with SmolVLA community datasets that follow the LeRobot format:
 
 - **[Community Dataset v1](https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v1)**: 128 datasets from 55 contributors (11K episodes, 46.9 hours)
 - **[Community Dataset v2](https://huggingface.co/datasets/HuggingFaceVLA/community_dataset_v2)**: Updated collection with v2.0/v2.1 format support
@@ -136,21 +138,20 @@ huggingface-cli download HuggingFaceVLA/community_dataset_v2 \
   --local-dir /path/to/local/datasets/community_dataset_v2
 ```
 
-To train from the Hub without pre-downloading, pass just the repo id; to use a specific snapshot, add `--dataset.revision`.
+To train from the Hub without pre-downloading, pass just the repo id.
 
 ## Usage
 
 ### Basic Training
 
-Train a SmolVLA2 model on multiple datasets on one GPU using Weights & Biases:
+Train a SmolVLA2 model on any combination of datasets from the Hub on one GPU using Weights & Biases:
 
 ```bash
 
-# Train with WandB logging on multiple datasets stored locally
+# Train with WandB logging on multiple datasets (automatically downloaded from Hub)
 python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="hf_username1/hf_data_1,hf_username2/hf_data_2,hf_username3/hf_data_3" \
-    --dataset.root="/path/to/local/datasets/community_dataset_v1" \
+    --dataset.repo_id="HuggingFaceVLA/community_dataset_v1,HuggingFaceVLA/community_dataset_v2,user1/dataset_a,user2/dataset_b" \
     --dataset.video_backend=pyav \
     --output_dir="./outputs/training" \
     --batch_size=8 \
@@ -165,7 +166,6 @@ Train with WandB logging on multiple datasets downloading directly from the Hub:
 python src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
     --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
-    --dataset.root="/path/to/local/datasets" \
     --dataset.video_backend=pyav \
     --output_dir="./outputs/multi_dataset_training" \
     --batch_size=8 \
@@ -279,7 +279,6 @@ sbatch scripts/training/train_smolvla_resume.slurm
 - Training will continue from the exact step where it was interrupted
 
 
-
 ## Configuration
 
 ### Model Configuration
@@ -290,32 +289,6 @@ Key model parameters:
 - **VLM Model**: `HuggingFaceTB/SmolVLM2-500M-Video-Instruct` (default)
 - **PEFT Method**: LoRA with configurable rank
 - **Attention**: Cross-attention with causal masking
-
-### Training Configuration
-
-Common training parameters:
-
-```bash
---batch_size=8                    # Batch size per GPU
---steps=200000                    # Total training steps
---policy.optimizer_lr=5e-4       # Learning rate for policy
---policy.optimizer_lr_vlm=1e-4   # Learning rate for VLM
---policy.scheduler_warmup_steps=1000
---policy.peft_config.r=32         # LoRA rank
---policy.use_amp=false            # Enable/disable mixed precision
-```
-
-### Dataset Configuration
-
-Dataset-related parameters:
-
-```bash
---dataset.max_num_images=2        # Maximum number of images per sample
---dataset.max_image_dim=256      # Maximum image dimension
---dataset.video_backend=pyav      # Video processing backend
---dataset.min_fps=30             # Minimum FPS filter
---dataset.max_fps=30             # Maximum FPS filter
-```
 
 ### Resume Training
 
@@ -334,7 +307,6 @@ python src/lerobot/scripts/train.py \
 - **[LeRobot GitHub](https://github.com/huggingface/lerobot)**: Main LeRobot repository
 - **LeRobot Installation Guide**: https://huggingface.co/docs/lerobot/en/installation
 - **LeRobot Documentation**: https://huggingface.co/docs/lerobot
-- **HuggingFace Hub**: https://huggingface.co/
 - **Accelerate Documentation**: https://huggingface.co/docs/accelerate
 
 ## Citation
