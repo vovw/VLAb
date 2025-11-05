@@ -11,19 +11,17 @@ A streamlined library for pretraining VLA models, derived from LeRobot, used to 
 ## Table of Contents
 
 - [Features](#features)
-- [Prerequisites](#prerequisites)
+- [Who is this Library for?](#who-is-this-library-for)
 - [Installation](#installation)
-  - [Conda Environment (Recommended)](#conda-environment-recommended)
-- [Setup](#setup)
-- [Pre-reqs](#pre-reqs)
-- [Usage for multiple datasets](#usage)
-  - [Basic Training](#basic-training)
-  - [Multi-GPU Training](#multi-gpu-training)
+  - [Verify Installation](#verify-installation)
+  - [Configure HuggingFace Hub](#configure-huggingface-hub-if-using-remote-datasets)
+- [Get the data](#get-the-data)
+- [Usage](#usage)
+  - [Training with Accelerate](#training-with-accelerate)
   - [SLURM Cluster Training](#slurm-cluster-training)
-  - [Resume Training](#resume-training)
-- [Configuration](#configuration)
-- [Citation](#citation)
 - [Additional Resources](#additional-resources)
+- [Citation](#citation)
+- [File Structure](#file-structure)
 
 > Note on video backends
 
@@ -40,6 +38,8 @@ It is directly compatible with the https://huggingface.co/datasets/HuggingFaceVL
 **Distributed Training**: Seamless multi-GPU and multi-node support through Accelerate, tested on both single machines and SLURM clusters
 **Multi-Dataset Training:** Easily train on multiple datasets with configurable sampling strategies and automatic data loading
 **Reduced Dependencies:** Leaner footprint compared to full robotics frameworks in a favor of faster installation and fewer potential conflicts.
+
+> **Note on Fine-tuning & Inference**: Pretrained policies from this codebase may not be directly compatible with the latest LeRobot version. To fine-tune or run inference using LeRobot, you'll need to convert your checkpoint using the [migration script](https://github.com/huggingface/lerobot/blob/f6b16f6d97155e3ce34ab2a1ec145e9413588197/src/lerobot/processor/migrate_policy_normalization.py#L4) to ensure compatibility with updated normalization formats.
 
 ## Installation
 
@@ -105,80 +105,37 @@ To train from the Hub without pre-downloading, pass just the repo id.
 
 ## Usage
 
-### Basic Training
+### Training with Accelerate
 
-Train a SmolVLA2 model on any combination of datasets from the Hub on one GPU using Weights & Biases:
+Accelerate works for both single-GPU and multi-GPU setups. First, configure accelerate:
 
 ```bash
+accelerate config
+```
 
-# Train with WandB logging on multiple datasets (automatically downloaded from Hub)
-python src/lerobot/scripts/train.py \
+Train on datasets from the Hugging Face Hub (automatically downloaded):
+
+```bash
+accelerate launch src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="HuggingFaceVLA/community_dataset_v1,HuggingFaceVLA/community_dataset_v2,user1/dataset_a,user2/dataset_b" \
+    --dataset.repo_id="HuggingFaceVLA/community_dataset_v1,HuggingFaceVLA/community_dataset_v2" \
     --dataset.video_backend=pyav \
     --output_dir="./outputs/training" \
     --batch_size=8 \
-    --steps=50000 \
-    --wandb.enable=true \
-    --wandb.project="smolvla2-training"
-```
-Train with WandB logging on multiple datasets downloading directly from the Hub:
-### Train with Multiple Datasets
-
-```bash
-python src/lerobot/scripts/train.py \
-    --policy.type=smolvla2 \
-    --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
-    --dataset.video_backend=pyav \
-    --output_dir="./outputs/multi_dataset_training" \
-    --batch_size=8 \
-    --steps=200000 \
-    --wandb.enable=true \
-    --wandb.project="smolvla2-multi-dataset"
-```
-
-### Multi-GPU Training
-
-Using Accelerate to train with WandB logging on multiple datasets stored locally:
-
-```bash
-# First, configure accelerate
-accelerate config
-
-# Then launch training on local datasets
-accelerate launch src/lerobot/scripts/train.py \
-    --policy.type=smolvla2 \
-    --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
-    --dataset.root="/path/to/local/datasets" \
-    --dataset.video_backend=pyav \
-    --output_dir="./outputs/multi_gpu_training" \
-    --batch_size=8 \
     --steps=200000 \
     --wandb.enable=true \
     --wandb.project="smolvla2-training"
 ```
 
-You can also train on a generated list of dataset paths by creating a script that outputs comma-separated repo IDs. This way you can train on a combination of community_dataset_v1 and community_dataset_v2. 
+To train on local datasets, specify the root directory with `--dataset.root`:
 
 ```bash
-# Generate dataset list dynamically
-DATASET_LIST=$(python -c "
-import os
-datasets = []
-for root, dirs, files in os.walk('/path/to/local/datasets'):
-    if 'data.parquet' in files:
-        rel_path = os.path.relpath(root, '/path/to/local/datasets')
-        datasets.append(rel_path.replace('/', '/'))
-print(','.join(datasets))
-")
-
-# Train with generated list
 accelerate launch src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --dataset.repo_id="$DATASET_LIST" \
+    --dataset.repo_id="user1/dataset_a,user2/dataset_b" \
     --dataset.root="/path/to/local/datasets" \
     --dataset.video_backend=pyav \
-    --output_dir="./outputs/multi_gpu_training" \
+    --output_dir="./outputs/training" \
     --batch_size=8 \
     --steps=200000 \
     --wandb.enable=true \
@@ -187,96 +144,39 @@ accelerate launch src/lerobot/scripts/train.py \
 
 ### SLURM Cluster Training
 
-For training on SLURM clusters, use the provided SLURM script:
+For SLURM clusters, we provide two sample scripts to help you get started:
 
+Fresh training: Use this script to start training from scratch
+Resume training: Use this script to continue training from a checkpoint
+
+Edit the scripts according to your cluster configuration, then submit:
 ```bash
-# Edit the script to set your preferences
-vim scripts/training/train_smolvla_optimized_fresh.slurm
-
-# Update paths and parameters:
-# - Change OUTPUT_DIR
-# - Set REPO_IDS (comma-separated dataset list)
-# - Configure GPU count (--gres=gpu:4)
-# - Set logging backend (WandB or TrackIO)
-
-# Submit the job
 sbatch scripts/training/train_smolvla_optimized_fresh.slurm
-
-# Monitor the job
-squeue -u $USER
-tail -f logs/smolvla_optimized_4gpu_fresh_*.out
-```
-
-### Resume Training
-
-If your training is interrupted, you can resume from the last checkpoint:
-
-```bash
-# Resume from a specific checkpoint directory
-python src/lerobot/scripts/train.py \
-    --resume=true \
-    --config_path="./outputs/previous_training/checkpoints/last/pretrained_model/train_config.json" \
-    --dataset.video_backend=pyav \
-    --output_dir="./outputs/previous_training"
-```
-
-For SLURM cluster resuming, use the provided resume script:
-
-```bash
-# Edit the resume script to set your checkpoint path
-vim scripts/training/train_smolvla_resume.slurm
-
-# Update these variables in the script:
-# - RESUME_FROM_CHECKPOINT="/path/to/your/checkpoint"
-# - REPO_IDS="your,dataset,list"
-# - WANDB_RUN_ID="your_existing_run_id" (optional)
-
-# Submit the resume job
 sbatch scripts/training/train_smolvla_resume.slurm
 ```
-
-**Important Notes:**
-- The checkpoint must contain `checkpoints/last/pretrained_model/train_config.json`
-- All model weights, optimizer state, and scheduler state will be restored
-- WandB run can be resumed by setting `WANDB_RUN_ID` and `WANDB_RESUME=must`
-- Training will continue from the exact step where it was interrupted
-
-
-## Configuration
-
-### Model Configuration
-
-Key model parameters:
-
-- **Policy Type**: `smolvla2`
-- **VLM Model**: `HuggingFaceTB/SmolVLM2-500M-Video-Instruct` (default)
-- **PEFT Method**: LoRA with configurable rank
-- **Attention**: Cross-attention with causal masking
-
-### Resume Training
-
-To resume from a checkpoint:
-
-```bash
-python src/lerobot/scripts/train.py \
-    --config_path="./outputs/previous_training/train_config.json" \
-    --resume=true \
-    --output_dir="./outputs/previous_training"
-```
-
 
 ## Additional Resources
 
 - **[LeRobot GitHub](https://github.com/huggingface/lerobot)**: Main LeRobot repository
-- **LeRobot Installation Guide**: https://huggingface.co/docs/lerobot/en/installation
-- **LeRobot Documentation**: https://huggingface.co/docs/lerobot
-- **Accelerate Documentation**: https://huggingface.co/docs/accelerate
+- **[Finetune SmolVLA with lerobot](https://huggingface.co/docs/lerobot/smolvla)**: Complete guide for fine-tuning the checkpoint using LeRobot
+- **[LeRobot Installation Guide](https://huggingface.co/docs/lerobot/en/installation)** 
+- **[Accelerate Documentation](https://huggingface.co/docs/accelerate)**:
 
 ## Citation
 
-If you use this library or models trained with it in your research, please cite the SmolVLA paper:
+If you use this library or models trained with it in your research, please cite the codebase:
 
-Shukor, M., Aubakirova, D., Capuano, F., Kooijmans, P., Palma, S., Zouitine, A., Aractingi, M., Pascal, C., Russi, M., Marafioti, A., Alibert, S., Cord, M., Wolf, T., Cadene, R. (2025). SmolVLA: A vision-language-action model for affordable and efficient robotics. Available at: https://arxiv.org/pdf/2506.01844
+```bibtex
+@misc{aubakirova2025vlab,
+  author = {Dana Aubakirova and Mustafa Shukor and Jade Cholgari and Leandro von Werra},
+  title = {VLAb: Your Laboratory for Pretraining VLAs},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/huggingface/vlab}}
+}
+
+And the paper:
 
 ```bibtex
 @article{shukor2025smolvla,
@@ -308,6 +208,3 @@ VLAb/
 └── README.md                     # This file
 ```
 
-## License
-
-Apache 2.0 License (inherited from LeRobot)
