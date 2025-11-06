@@ -43,7 +43,7 @@ class DatasetConfig:
     max_state_dim: int | None = None
     max_num_images: int | None = None
     max_image_dim: int | None = None
-    train_on_all_features: bool = False
+    train_on_all_features: bool = True
     features_version: int = 0
     discard_first_n_frames: int = 0
     min_fps: int = 1

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime as dt
+import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Type
@@ -98,15 +100,42 @@ class TrainPipelineConfig(HubMixin):
             else:
                 self.job_name = f"{self.env.type}_{self.policy.type}"
 
-        if not self.resume and isinstance(self.output_dir, Path) and self.output_dir.is_dir():
-            raise FileExistsError(
-                f"Output directory {self.output_dir} already exists and resume is {self.resume}. "
-                f"Please change your output directory so that {self.output_dir} is not overwritten."
-            )
-        elif not self.output_dir:
+        if not self.output_dir:
             now = dt.datetime.now()
             train_dir = f"{now:%Y-%m-%d}/{now:%H-%M-%S}_{self.job_name}"
             self.output_dir = Path("outputs/train") / train_dir
+        elif not self.resume and isinstance(self.output_dir, Path) and self.output_dir.is_dir():
+            # Output directory already exists - handle based on whether we're in an interactive environment
+            original_dir = self.output_dir
+            if sys.stdin.isatty():  # Interactive terminal
+                # Prompt user for confirmation
+                response = input(
+                    f"Output directory {original_dir} already exists. "
+                    f"Do you want to overwrite it? (y/n): "
+                ).strip().lower()
+                if response in ['y', 'yes']:
+                    logging.warning(
+                        f"Output directory {original_dir} will be overwritten."
+                    )
+                    # Keep the original directory - will overwrite
+                    self.output_dir = original_dir
+                else:
+                    # Append timestamp to avoid overwriting
+                    now = dt.datetime.now()
+                    timestamp = f"{now:%Y%m%d_%H%M%S}"
+                    self.output_dir = Path(str(original_dir) + f"_{timestamp}")
+                    logging.info(
+                        f"Using {self.output_dir} instead to avoid overwriting."
+                    )
+            else:
+                # Non-interactive (e.g., SLURM script) - automatically append timestamp
+                now = dt.datetime.now()
+                timestamp = f"{now:%Y%m%d_%H%M%S}"
+                self.output_dir = Path(str(original_dir) + f"_{timestamp}")
+                logging.warning(
+                    f"Output directory {original_dir} already exists. "
+                    f"Using {self.output_dir} instead to avoid overwriting."
+                )
 
         if isinstance(self.dataset.repo_id, list):
             raise NotImplementedError("LeRobotMultiDataset is not currently implemented.")

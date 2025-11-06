@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=smolvla_optimized_4gpu_fresh
+#SBATCH --job-name=smolvla_fresh
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=44
-#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=88
+#SBATCH --gres=gpu:8
 #SBATCH --mem=0
-#SBATCH --time=4:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=hopper-prod
-#SBATCH --output=/fsx/dana_aubakirova/vla/logs/smolvla_optimized_4gpu_fresh_%j.out
-#SBATCH --error=/fsx/dana_aubakirova/vla/logs/smolvla_optimized_4gpu_fresh_%j.err
+#SBATCH --output=/fsx/dana_aubakirova/vla/logs/smolvla_fresh_%j.out
+#SBATCH --error=/fsx/dana_aubakirova/vla/logs/smolvla_fresh_%j.err
 #SBATCH --exclusive
 
 # Create logs directory if it doesn't exist
@@ -21,8 +21,8 @@ conda activate vlab
 # Add local VLAb source to Python path
 export PYTHONPATH="/fsx/dana_aubakirova/vla/VLAb/src:$PYTHONPATH"
 
-# OPTIMIZED 4-GPU CUDA environment - high performance configuration
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+# CUDA environment configuration
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512,expandable_segments:True,garbage_collection_threshold:0.8
 export TORCH_DISTRIBUTED_DEBUG=OFF
 export NCCL_DEBUG=WARN
@@ -31,23 +31,23 @@ export ACCELERATE_USE_FSDP=false
 export ACCELERATE_USE_DEEPSPEED=false
 export HF_ACCELERATE_DEVICE_MAP=false
 export TRANSFORMERS_NO_ADVISORY_WARNINGS=1
-# 4-GPU optimizations
 export NCCL_IB_DISABLE=1
 export NCCL_P2P_DISABLE=1
 
 # Change to working directory
 cd /fsx/dana_aubakirova/vla
 
-# FRESH START 4-GPU training configuration - NEW OUTPUT DIRECTORY
-export OUTPUT_DIR="/fsx/dana_aubakirova/vla/outputs/train_smolvla_optimized_4gpu_fresh_$(date +%Y%m%d_%H%M%S)"
-# Use ALL datasets from relative_datasets_list.txt - full scale training
-export REPO_IDS="AndrejOrsula/lerobot_double_ball_stacking_random,koenvanwijk/orange50-variation-2"
-#export REPO_IDS=$(cat dataset_lists/all_datasets_relative.txt)
+# FRESH START training configuration - NEW OUTPUT DIRECTORY
+export OUTPUT_DIR="/fsx/dana_aubakirova/vla/outputs/train_smolvla_fresh_$(date +%Y%m%d_%H%M%S)"
+# Use ALL datasets from all_datasets_relative.txt - full scale training
+export REPO_IDS=$(cat /fsx/dana_aubakirova/vla/all_datasets_relative.txt)
+# For testing with a small subset, use:
+#export REPO_IDS="AndrejOrsula/lerobot_double_ball_stacking_random,koenvanwijk/orange50-variation-2"
 
-# Model configuration - optimized for 4-GPU with global batch size 32
+# Model configuration
 export VLM_REPO_ID=HuggingFaceTB/SmolVLM2-500M-Video-Instruct
 export STEPS=200000   # Full training steps
-export BATCH_SIZE=8  # 8 per GPU = 32 global batch size (prevent hanging)
+export BATCH_SIZE=4  # Per GPU
 export EVAL_FREQ=-1 # Disable evaluation for faster training
 export NUM_WORKERS=0  # MEMORY FIX: Disable workers to prevent memory exhaustion
 export SAVE_FREQ=10000 # Save every 10k steps
@@ -69,10 +69,10 @@ export MAX_IMAGE_DIM=256 # OPTIMIZED: 256px resolution
 export TRAIN_ON_ALL_FEATURES=true
 export FEATURES_VERSION=2
 
-# Advanced optimizations for 4-GPU setup
+# Advanced optimizations
 export FPS_MIN=30
 export FPS_MAX=30
-export GRADIENT_ACCUMULATION_STEPS=1  # Global batch size = 8 × 4 × 1 = 32
+export GRADIENT_ACCUMULATION_STEPS=1
 export PRECISION=no
 export DROP_LAST=true
 
@@ -100,80 +100,51 @@ export TRANSFORMERS_CACHE="/fsx/dana_aubakirova/vla/.cache/huggingface"
 export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=0
 
-# Optimized accelerate config
-export ACCELERATE_CONFIG_FILE="/fsx/dana_aubakirova/vla/accelerate_configs/optimized_fresh_config.yaml"
-
 # Logging configuration - WandB
 export LOGGING_BACKEND="wandb"
 
 # WandB configuration
 export WANDB_PROJECT="smolvla2-training"
-export WANDB_NOTES="4-GPU optimized training FRESH START - same parameters as previous run but from scratch"
+export WANDB_NOTES="VLAb training FRESH START - all datasets from all_datasets_relative.txt"
 export WANDB_MODE="online"
 
 # Print comprehensive optimization info
 echo "🚀 =============================================="
-echo "🚀 OPTIMIZED 4-GPU FRESH START TRAINING"
+echo "🚀 VLAb FRESH START TRAINING CONFIGURATION"
 echo "🚀 =============================================="
 echo "🆕 FRESH START - No resume, new output directory"
-echo "📊 Datasets: ALL available datasets (same as previous run)"
+echo "📊 Datasets: ALL datasets from all_datasets_relative.txt"
 echo "📁 Output directory: $OUTPUT_DIR"
+echo "📊 Number of datasets: $(echo "$REPO_IDS" | tr ',' '\n' | wc -l)"
 echo "🎯 Policy: $POLICY"
-echo "🔧 Batch size per GPU: $BATCH_SIZE (GLOBAL BATCH SIZE: $((BATCH_SIZE * 4)))"
+echo "🔧 Batch size per GPU: $BATCH_SIZE (GLOBAL: $((BATCH_SIZE * 8)))"
 echo "🔄 Gradient accumulation steps: $GRADIENT_ACCUMULATION_STEPS"
 echo "📈 Training steps: $STEPS"
 echo "💾 Save frequency: $SAVE_FREQ"
 echo "🔬 Evaluation frequency: $EVAL_FREQ"
-echo "⚡ AMP enabled: $USE_AMP (no mixed precision - stable)"
+echo "⚡ AMP enabled: $USE_AMP"
 echo "📚 Learning rate: $OPTIMIZER_LR"
 echo "🎓 VLM Learning rate: $LR_VLM"
 echo "🔥 Warmup steps: $WARMUP_STEPS"
 echo "📷 Max images: $MAX_NUM_IMAGES"
 echo "🖼️  Image dimension: $MAX_IMAGE_DIM"
-echo "👥 Data workers per GPU: $NUM_WORKERS (memory optimized)"
+echo "👥 Data workers: $NUM_WORKERS"
 echo "🧠 VLM layers: $VLM_LAYERS"
-echo "🔄 Expert width multiplier: $EXPERT_WIDTH_MULTIPLIER"
 echo "🎯 LORA rank: $LORA_R"
-echo "🖥️  GPUs: 4 (HIGH PERFORMANCE)"
-echo "📊 Logging backend: WandB"
-echo "📊 WandB project: $WANDB_PROJECT"
-echo "📝 WandB notes: $WANDB_NOTES"
+echo "🖥️  GPUs: 8"
+echo "📊 Wandb project: $WANDB_PROJECT"
 echo "🚀 =============================================="
 
 # Check GPU availability
 echo "🖥️  GPU Information:"
 nvidia-smi --list-gpus
 
-# Create optimized 4-GPU accelerate config
-mkdir -p /fsx/dana_aubakirova/vla/accelerate_configs
-cat > /fsx/dana_aubakirova/vla/accelerate_configs/optimized_fresh_config.yaml << EOF
-compute_environment: LOCAL_MACHINE
-debug: false
-distributed_type: MULTI_GPU
-downcast_bf16: 'no'
-enable_cpu_affinity: false
-gpu_ids: '0,1,2,3'
-machine_rank: 0
-main_training_function: main
-mixed_precision: 'no'
-num_machines: 1
-num_processes: 4
-rdzv_backend: static
-same_network: true
-tpu_env: []
-tpu_use_cluster: false
-tpu_use_sudo: false
-use_cpu: false
-EOF
-
-echo "📋 Created optimized accelerate config with no mixed precision for stability"
-
-# Run distributed training with optimized accelerate configuration - FRESH START
-accelerate launch --config_file /fsx/dana_aubakirova/vla/accelerate_configs/optimized_fresh_config.yaml \
+# Run distributed training - FRESH START
+accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs/multi_gpu.yaml \
     VLAb/src/lerobot/scripts/train.py \
     --policy.type=$POLICY \
     --dataset.repo_id="$REPO_IDS" \
-    --dataset.root="/fsx/dana_aubakirova/vla/community_dataset_v1" \
+    --dataset.root="/fsx/dana_aubakirova/vla" \
     --dataset.use_imagenet_stats=$USE_IMAGENET_STATS \
     --dataset.image_transforms.enable=$ENABLE_IMG_TRANSFORM \
     --dataset.train_on_all_features=$TRAIN_ON_ALL_FEATURES \
@@ -214,24 +185,15 @@ accelerate launch --config_file /fsx/dana_aubakirova/vla/accelerate_configs/opti
     --policy.attention_mode=$ATTENTION_MODE \
     --policy.prefix_length=$PREFIX_LENGTH
 
-echo "✅ Optimized 4-GPU FRESH START training completed! Check results in: $OUTPUT_DIR"
-echo "📊 View training progress with WandB:"
-echo "   Visit: https://wandb.ai to view project \"$WANDB_PROJECT\""
+echo "✅ VLAb fresh start training completed! Check results in: $OUTPUT_DIR"
+echo "📊 View training progress at: https://wandb.ai"
 echo "🆕 FRESH START TRAINING SUMMARY:"
 echo "   • Started from scratch with new output directory"
 echo "   • Training from step 0 to step $STEPS"
-echo "   • Same optimized parameters as previous successful run"
 echo "   • WandB logging enabled for experiment tracking"
 echo ""
-echo "🚀 Key 4-GPU optimizations applied:"
-echo "   • 4 GPUs with global batch size $((BATCH_SIZE * 4))"
-echo "   • Memory-optimized data loading: 0 workers (prevents OOM)"
-echo "   • STABLE: No mixed precision (matches conservative setup)"
-echo "   • Optimized NCCL settings for 4-GPU communication"
-echo "   • Enhanced memory allocation for high-throughput"
-echo ""
-echo "🏃‍♂️ Expected performance gains:"
-echo "   • ~2x faster training throughput vs single GPU"
-echo "   • Clean start without any checkpoint compatibility issues"
-echo "   • Proven parameter configuration from previous run"
-echo "   • WandB experiment tracking enabled"
+echo "🚀 Key optimizations:"
+echo "   • 8 GPUs with global batch size $((BATCH_SIZE * 8))"
+echo "   • Memory-optimized data loading: $NUM_WORKERS workers"
+echo "   • Stable training without mixed precision"
+echo "   • Optimized NCCL settings for multi-GPU communication"

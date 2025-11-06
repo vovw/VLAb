@@ -7,12 +7,12 @@
 #SBATCH --mem=0
 #SBATCH --time=48:00:00
 #SBATCH --partition=hopper-prod
-#SBATCH --output=/fsx/dana_aubakirova/vla/VLAb/logs/smolvla_resume_%j.out
-#SBATCH --error=/fsx/dana_aubakirova/vla/VLAb/logs/smolvla_resume_%j.err
+#SBATCH --output=/fsx/dana_aubakirova/vla/logs/smolvla_resume_%j.out
+#SBATCH --error=/fsx/dana_aubakirova/vla/logs/smolvla_resume_%j.err
 #SBATCH --exclusive
 
 # Create logs directory if it doesn't exist
-mkdir -p /fsx/dana_aubakirova/vla/VLAb/logs
+mkdir -p /fsx/dana_aubakirova/vla/logs
 
 # Activate conda environment
 source /fsx/dana_aubakirova/miniconda/etc/profile.d/conda.sh
@@ -35,14 +35,16 @@ export NCCL_IB_DISABLE=1
 export NCCL_P2P_DISABLE=1
 
 # Change to working directory
-cd /fsx/dana_aubakirova/vla/VLAb
+cd /fsx/dana_aubakirova/vla
 
 # RESUME CONFIGURATION - Update these paths to your checkpoint
-export RESUME_FROM_CHECKPOINT="/fsx/dana_aubakirova/vla/VLAb/outputs/your_training_run"
+export RESUME_FROM_CHECKPOINT="/fsx/dana_aubakirova/vla/outputs/your_training_run"
 export OUTPUT_DIR="$RESUME_FROM_CHECKPOINT"
 
-# Dataset configuration - update with your dataset list
-export REPO_IDS="hf_username1/dataset1,hf_username2/dataset2,hf_username3/dataset3"
+# Dataset configuration - Use ALL datasets from all_datasets_relative.txt
+export REPO_IDS=$(cat /fsx/dana_aubakirova/vla/VLAb/examples/all_datasets_relative.txt)
+# For testing with a small subset, use:
+#export REPO_IDS="AndrejOrsula/lerobot_double_ball_stacking_random,koenvanwijk/orange50-variation-2"
 
 # Model configuration
 export VLM_REPO_ID=HuggingFaceTB/SmolVLM2-500M-Video-Instruct
@@ -92,10 +94,10 @@ export DECAY_STEPS=50000
 export LR_VLM=1e-4
 
 # Cache configuration
-export HF_LEROBOT_HOME="/fsx/dana_aubakirova/vla/VLAb"
-export HF_HOME="/fsx/dana_aubakirova/vla/VLAb/.cache/huggingface"
-export HF_HUB_CACHE="/fsx/dana_aubakirova/vla/VLAb/.cache/huggingface"
-export TRANSFORMERS_CACHE="/fsx/dana_aubakirova/vla/VLAb/.cache/huggingface"
+export HF_LEROBOT_HOME="/fsx/dana_aubakirova/vla"
+export HF_HOME="/fsx/dana_aubakirova/vla/.cache/huggingface"
+export HF_HUB_CACHE="/fsx/dana_aubakirova/vla/.cache/huggingface"
+export TRANSFORMERS_CACHE="/fsx/dana_aubakirova/vla/.cache/huggingface"
 export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=0
 
@@ -111,8 +113,9 @@ echo "🚀 =============================================="
 echo "🚀 VLAb RESUME TRAINING CONFIGURATION"
 echo "🚀 =============================================="
 echo "🔄 RESUMING FROM CHECKPOINT: $OUTPUT_DIR"
-echo "📊 Datasets: $REPO_IDS"
+echo "📊 Datasets: ALL datasets from all_datasets_relative.txt"
 echo "📁 Output directory: $OUTPUT_DIR"
+echo "📊 Number of datasets: $(echo "$REPO_IDS" | tr ',' '\n' | wc -l)"
 echo "🎯 Policy: $POLICY"
 echo "🔧 Batch size per GPU: $BATCH_SIZE (GLOBAL: $((BATCH_SIZE * 8)))"
 echo "📈 Training steps: $STEPS"
@@ -134,38 +137,14 @@ echo "🚀 =============================================="
 echo "🖥️  GPU Information:"
 nvidia-smi --list-gpus
 
-# Create accelerate config
-mkdir -p /fsx/dana_aubakirova/vla/VLAb/accelerate_configs
-cat > /fsx/dana_aubakirova/vla/VLAb/accelerate_configs/resume_config.yaml << EOF
-compute_environment: LOCAL_MACHINE
-debug: false
-distributed_type: MULTI_GPU
-downcast_bf16: 'no'
-enable_cpu_affinity: false
-gpu_ids: '0,1,2,3,4,5,6,7'
-machine_rank: 0
-main_training_function: main
-mixed_precision: 'no'
-num_machines: 1
-num_processes: 8
-rdzv_backend: static
-same_network: true
-tpu_env: []
-tpu_use_cluster: false
-tpu_use_sudo: false
-use_cpu: false
-EOF
-
-echo "📋 Created accelerate config for resume training"
-
 # Run distributed training with resume
-accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs/resume_config.yaml \
-    src/lerobot/scripts/train.py \
+accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs/multi_gpu.yaml \
+    VLAb/src/lerobot/scripts/train.py \
     --resume=true \
     --config_path="$RESUME_FROM_CHECKPOINT/checkpoints/last/pretrained_model/train_config.json" \
     --policy.type=$POLICY \
     --dataset.repo_id="$REPO_IDS" \
-    --dataset.root="/fsx/dana_aubakirova/vla/VLAb/datasets" \
+    --dataset.root="/fsx/dana_aubakirova/vla" \
     --dataset.use_imagenet_stats=$USE_IMAGENET_STATS \
     --dataset.image_transforms.enable=$ENABLE_IMG_TRANSFORM \
     --dataset.train_on_all_features=$TRAIN_ON_ALL_FEATURES \
