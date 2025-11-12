@@ -131,16 +131,16 @@ Both datasets feature SO-100 robotic arm demonstrations focused on tabletop mani
 
 **Dataset Structure**: Both datasets use a hierarchical structure with contributor subdirectories:
 ```
-community_dataset_v1/              community_dataset_v2/
-├── contributor1/                  ├── contributor1/
-│   ├── dataset_name_1/           │   ├── dataset_name_1/
-│   │   ├── data/                 │   │   ├── data/
-│   │   ├── videos/               │   │   ├── videos/
-│   │   └── meta/                 │   │   └── meta/
-│   └── dataset_name_2/           │   └── dataset_name_2/
-├── contributor2/                  ├── contributor2/
-│   └── dataset_name_3/           │   └── dataset_name_3/
-└── ...                            └── ...
+community_dataset_v1/v2/        
+├── contributor1/               
+│   ├── dataset_name_1/    
+│   │   ├── data/                 
+│   │   ├── videos/             
+│   │   └── meta/                 
+│   └── dataset_name_2/           
+├── contributor2/                  
+│   └── dataset_name_3/           
+└── ...                            
 ```
 
 ### Downloading Datasets
