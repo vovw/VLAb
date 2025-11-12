@@ -32,9 +32,6 @@ class ProcessSignalHandler:
     _SUPPORTED_SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT")
 
     def __init__(self, use_threads: bool, display_pid: bool = False):
-        # TODO: Check if we can use Event from threading since Event from
-        # multiprocessing is the a clone of threading.Event.
-        # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Event
         if use_threads:
             from threading import Event
         else:
@@ -65,7 +62,6 @@ class ProcessSignalHandler:
             # On a second Ctrl-C (or any supported signal) force the exit to
             # mimic the previous behaviour while giving the caller one chance to
             # shutdown gracefully.
-            # TODO: Investigate if we need it later
             if self._counter > 1:
                 logging.info("Force shutdown")
                 sys.exit(1)

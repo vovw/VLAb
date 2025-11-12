@@ -38,7 +38,6 @@ def none_or_int(value):
 
 def inside_slurm():
     """Check whether the python process was launched through slurm"""
-    # TODO(rcadene): return False for interactive mode `--pty bash`
     return "SLURM_JOB_ID" in os.environ
 
 
@@ -55,7 +54,6 @@ def auto_select_torch_device() -> torch.device:
         return torch.device("cpu")
 
 
-# TODO(Steven): Remove log. log shouldn't be an argument, this should be handled by the logger level
 def get_safe_torch_device(try_device: str, log: bool = False) -> torch.device:
     """Given a string, return a torch.device with checks on whether the device is available."""
     try_device = str(try_device)

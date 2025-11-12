@@ -91,7 +91,6 @@ def make_policy(
                     aggregated_stats[feature_name] = feature_stats
                 else:
                     # For multidataset, we need to handle the aggregation properly
-                    # For now, use the first dataset's stats (TODO: proper aggregation)
                     pass
         kwargs["dataset_stats"] = aggregated_stats
     else:

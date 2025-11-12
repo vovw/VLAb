@@ -95,9 +95,7 @@ class WandBLogger:
             tags=cfg_to_group(cfg, return_list=True),
             dir=self.log_dir,
             config=cfg.to_dict(),
-            # TODO(rcadene): try set to True
             save_code=False,
-            # TODO(rcadene): split train and eval, and run async eval with job_type="eval"
             job_type="train_eval",
             resume="must" if cfg.resume else None,
             mode=self.cfg.mode if self.cfg.mode in ["online", "offline", "disabled"] else "online",

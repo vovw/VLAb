@@ -157,7 +157,6 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
         """
         raise NotImplementedError
 
-    # TODO(aliberts, rcadene): split into 'forward' and 'compute_loss'?
     @abc.abstractmethod
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, dict | None]:
         """_summary_

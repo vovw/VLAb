@@ -83,7 +83,6 @@ def update_policy(
         with accelerator.accumulate(policy):
             with torch.autocast(device_type=device.type) if use_amp else nullcontext():
                 loss, output_dict = policy.forward(batch)
-            # TODO(rcadene): policy.unnormalize_outputs(out_dict)
             accelerator.backward(loss)
             if accelerator.sync_gradients:
                 grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -97,7 +96,6 @@ def update_policy(
         # Standard training loop without accelerate
         with torch.autocast(device_type=device.type) if use_amp else nullcontext():
             loss, output_dict = policy.forward(batch)
-        # TODO(rcadene): policy.unnormalize_outputs(out_dict)
         
         grad_scaler.scale(loss).backward()
         grad_scaler.unscale_(optimizer)
@@ -143,7 +141,7 @@ def train(cfg: TrainPipelineConfig):
         from accelerate import InitProcessGroupKwargs
         # Set NCCL timeout (default 30 minutes = 1800 seconds)
         nccl_timeout = getattr(cfg, 'nccl_timeout', 1800)
-        ddp_init_kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=nccl_timeout)) # FIXME(mshukor): allow user to set timeout. This should be longer than the evaluation time
+        ddp_init_kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=nccl_timeout))
         # Set gradient accumulation steps (default 1)
         gradient_accumulation_steps = getattr(cfg, 'gradient_accumulation_steps', 1)
         accelerator = accelerate.Accelerator(step_scheduler_with_optimizer=False, gradient_accumulation_steps=gradient_accumulation_steps, kwargs_handlers=[ddp_init_kwargs, ddp_kwargs])

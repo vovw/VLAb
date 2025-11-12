@@ -24,9 +24,13 @@ from typing import Any, ClassVar
 import av
 import pyarrow as pa
 import torch
-import torchvision
 from datasets.features.features import register_feature
 from PIL import Image
+
+# Suppress torchvision deprecation warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=UserWarning, module="torchvision")
+    import torchvision
 
 
 def get_safe_default_codec():
@@ -99,13 +103,16 @@ def decode_video_frames_torchvision(
 
     # set backend
     keyframes_only = False
-    torchvision.set_video_backend(backend)
-    if backend == "pyav":
-        keyframes_only = True  # pyav doesn't support accurate seek
+    # Suppress deprecation warnings when using torchvision video APIs
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, module="torchvision")
+        torchvision.set_video_backend(backend)
+        if backend == "pyav":
+            keyframes_only = True  # pyav doesn't support accurate seek
 
-    # set a video stream reader
-    # TODO(rcadene): also load audio stream at the same time
-    reader = torchvision.io.VideoReader(video_path, "video")
+        # set a video stream reader
+        # TODO(rcadene): also load audio stream at the same time
+        reader = torchvision.io.VideoReader(video_path, "video")
 
     # set the first and last requested timestamps
     # Note: previous timestamps are usually loaded, since we need to access the previous key frame

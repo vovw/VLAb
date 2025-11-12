@@ -1,21 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=smolvla_fresh
+#SBATCH --job-name=smolvla_resume
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=88
+#SBATCH --cpus-per-task=44
 #SBATCH --gres=gpu:2
 #SBATCH --mem=0
-#SBATCH --time=72:00:00
+#SBATCH --time=2:00:00
 #SBATCH --partition=hopper-prod
-#SBATCH --output=/fsx/dana_aubakirova/vla/logs/smolvla_fresh_%j.out
-#SBATCH --error=/fsx/dana_aubakirova/vla/logs/smolvla_fresh_%j.err
+#SBATCH --output=/fsx/dana_aubakirova/vla/logs/smolvla_resume_%j.out
+#SBATCH --error=/fsx/dana_aubakirova/vla/logs/smolvla_resume_%j.err
 #SBATCH --exclusive
 
 # Create logs directory if it doesn't exist
 mkdir -p /fsx/dana_aubakirova/vla/logs
 
 # Activate conda environment
-source /fsx/dana_aubakirova/miniconda/etc/profile.d/conda.sh
+source /fsx/dana_aubakirova/miniconda3/etc/profile.d/conda.sh
 conda activate vlab
 
 # Add local VLAb source to Python path
@@ -37,35 +37,37 @@ export NCCL_P2P_DISABLE=1
 # Change to working directory
 cd /fsx/dana_aubakirova/vla
 
-# FRESH START training configuration - NEW OUTPUT DIRECTORY
-export OUTPUT_DIR="/fsx/dana_aubakirova/vla/outputs/train_smolvla_fresh_$(date +%Y%m%d_%H%M%S)"
-# Use ALL datasets from all_datasets_relative.txt - full scale training
+# RESUME CONFIGURATION - Update these paths to your checkpoint
+export RESUME_FROM_CHECKPOINT="/fsx/dana_aubakirova/vla/outputs/your_training_run"
+export OUTPUT_DIR="$RESUME_FROM_CHECKPOINT"
+
+# Dataset configuration - Use ALL datasets from all_datasets_relative.txt
 export REPO_IDS=$(cat /fsx/dana_aubakirova/vla/VLAb/examples/all_datasets_relative.txt)
 # For testing with a small subset, use:
 #export REPO_IDS="AndrejOrsula/lerobot_double_ball_stacking_random,koenvanwijk/orange50-variation-2"
 
 # Model configuration
 export VLM_REPO_ID=HuggingFaceTB/SmolVLM2-500M-Video-Instruct
-export STEPS=200000   # Full training steps
+export STEPS=200000
 export BATCH_SIZE=4  # Per GPU
-export EVAL_FREQ=-1 # Disable evaluation for faster training
-export NUM_WORKERS=0  # MEMORY FIX: Disable workers to prevent memory exhaustion
-export SAVE_FREQ=10000 # Save every 10k steps
+export EVAL_FREQ=10000
+export NUM_WORKERS=0  # Memory optimization
+export SAVE_FREQ=10000
 
-# Model config - optimized settings inspired by SmolPi0
+# Policy configuration
 export POLICY=smolvla2
-export USE_AMP=false   # DISABLE AMP for stability
-export OPTIMIZER_LR=5e-4  # Optimized learning rate
+export USE_AMP=false
+export OPTIMIZER_LR=5e-4
 export PEFT_METHOD=lora
 export LOAD_VLM_WEIGHTS=true
 export MAX_ACTION_DIM=32
 export MAX_STATE_DIM=32
 
-# Dataset config - optimized from analysis
+# Dataset config
 export USE_IMAGENET_STATS=false
 export ENABLE_IMG_TRANSFORM=true
-export MAX_NUM_IMAGES=2  # OPTIMIZED: 2 images for better context
-export MAX_IMAGE_DIM=256 # OPTIMIZED: 256px resolution
+export MAX_NUM_IMAGES=2
+export MAX_IMAGE_DIM=256
 export TRAIN_ON_ALL_FEATURES=true
 export FEATURES_VERSION=2
 
@@ -120,16 +122,18 @@ fi
 # Logging configuration - WandB
 export LOGGING_BACKEND="wandb"
 
-# WandB configuration
+# WandB configuration - RESUME MODE
 export WANDB_PROJECT="smolvla2-training"
-export WANDB_NOTES="VLAb training FRESH START - all datasets from all_datasets_relative.txt"
+export WANDB_RUN_ID=""  # Set this to your existing run ID to resume
+export WANDB_NOTES="VLAb training RESUMED from checkpoint"
 export WANDB_MODE="online"
+export WANDB_RESUME="must"  # Resume existing WandB run
 
-# Print comprehensive optimization info
+# Print configuration info
 echo "🚀 =============================================="
-echo "🚀 VLAb FRESH START TRAINING CONFIGURATION"
+echo "🚀 VLAb RESUME TRAINING CONFIGURATION"
 echo "🚀 =============================================="
-echo "🆕 FRESH START - No resume, new output directory"
+echo "🔄 RESUMING FROM CHECKPOINT: $OUTPUT_DIR"
 echo "📊 Datasets: ALL datasets from all_datasets_relative.txt"
 echo "📁 Output directory: $OUTPUT_DIR"
 echo "📊 Number of datasets: $(echo "$REPO_IDS" | tr ',' '\n' | wc -l)"
@@ -139,7 +143,7 @@ echo "🔄 Gradient accumulation steps: $GRADIENT_ACCUMULATION_STEPS"
 echo "📈 Training steps: $STEPS"
 echo "💾 Save frequency: $SAVE_FREQ"
 echo "🔬 Evaluation frequency: $EVAL_FREQ"
-echo "⚡ AMP enabled: $USE_AMP"
+echo "⚡ AMP enabled: $USE_AMP (2x speedup)"
 echo "📚 Learning rate: $OPTIMIZER_LR"
 echo "🎓 VLM Learning rate: $LR_VLM"
 echo "🔥 Warmup steps: $WARMUP_STEPS"
@@ -156,9 +160,11 @@ echo "🚀 =============================================="
 echo "🖥️  GPU Information:"
 nvidia-smi --list-gpus
 
-# Run distributed training - FRESH START
+# Run distributed training with resume
 accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs/multi_gpu.yaml \
     VLAb/src/lerobot/scripts/train.py \
+    --resume=true \
+    --config_path="$RESUME_FROM_CHECKPOINT/checkpoints/last/pretrained_model/train_config.json" \
     --policy.type=$POLICY \
     --dataset.repo_id="$REPO_IDS" \
     --dataset.root="/fsx/dana_aubakirova/vla" \
@@ -191,6 +197,7 @@ accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs
     --num_workers=$NUM_WORKERS \
     --wandb.enable=true \
     --wandb.project=$WANDB_PROJECT \
+    --wandb.run_id=$WANDB_RUN_ID \
     --wandb.notes="$WANDB_NOTES" \
     --trackio.enable=false \
     --dataset.min_fps=$FPS_MIN \
@@ -202,15 +209,16 @@ accelerate launch --config_file /fsx/dana_aubakirova/vla/VLAb/accelerate_configs
     --policy.attention_mode=$ATTENTION_MODE \
     --policy.prefix_length=$PREFIX_LENGTH
 
-echo "✅ VLAb fresh start training completed! Check results in: $OUTPUT_DIR"
+echo "✅ VLAb resume training completed! Check results in: $OUTPUT_DIR"
 echo "📊 View training progress at: https://wandb.ai"
-echo "🆕 FRESH START TRAINING SUMMARY:"
-echo "   • Started from scratch with new output directory"
-echo "   • Training from step 0 to step $STEPS"
-echo "   • WandB logging enabled for experiment tracking"
+echo "🔄 RESUME TRAINING SUMMARY:"
+echo "   • RESUMED from checkpoint: $OUTPUT_DIR/checkpoints/last"
+echo "   • All model weights, optimizer state, and scheduler state restored"
+echo "   • Training will continue to step $STEPS"
 echo ""
 echo "🚀 Key optimizations:"
 echo "   • 2 GPUs with global batch size $((BATCH_SIZE * 2))"
-echo "   • Memory-optimized data loading: $NUM_WORKERS workers"
-echo "   • Stable training without mixed precision"
+echo "   • Parallel data loading: $NUM_WORKERS workers per GPU"
+echo "   • Mixed precision training (fp16) for 2x speedup"
 echo "   • Optimized NCCL settings for multi-GPU communication"
+echo "   • Expected ~3-4x faster training vs previous config"

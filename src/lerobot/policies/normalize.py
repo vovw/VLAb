@@ -78,7 +78,6 @@ def create_stats_buffers(
                 }
             )
 
-        # TODO(aliberts, rcadene): harmonize this to only use one framework (np or torch)
         if stats and key in stats:
             if isinstance(stats[key]["mean"], np.ndarray):
                 if norm_mode is NormalizationMode.MEAN_STD:
@@ -148,14 +147,11 @@ class Normalize(nn.Module):
         for key, buffer in stats_buffers.items():
             setattr(self, "buffer_" + key.replace(".", "_"), buffer)
 
-    # TODO(rcadene): should we remove torch.no_grad?
     @torch.no_grad
     def forward(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
-        # TODO: Remove this shallow copy
         batch = dict(batch)  # shallow copy avoids mutating the input batch
         for key, ft in self.features.items():
             if key not in batch:
-                # FIXME(aliberts, rcadene): This might lead to silent fail!
                 continue
 
             norm_mode = self.norm_map.get(ft.type, NormalizationMode.IDENTITY)
@@ -223,7 +219,6 @@ class Unnormalize(nn.Module):
         for key, buffer in stats_buffers.items():
             setattr(self, "buffer_" + key.replace(".", "_"), buffer)
 
-    # TODO(rcadene): should we remove torch.no_grad?
     @torch.no_grad
     def forward(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
         batch = dict(batch)  # shallow copy avoids mutating the input batch
@@ -255,8 +250,6 @@ class Unnormalize(nn.Module):
         return batch
 
 
-# TODO (azouitine): We should replace all normalization on the policies with register_buffer normalization
-#       and remove the `Normalize` and `Unnormalize` classes.
 def _initialize_stats_buffers(
     module: nn.Module,
     features: dict[str, PolicyFeature],

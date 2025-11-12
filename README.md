@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/🚀%20Pretraining--Focused-0EA5E9?style=for-the-badge&logoColor=ffffff&labelColor=0C4A6E" alt="Pretraining-Focused" /> <img src="https://img.shields.io/badge/🤖%20SmolVLA%20Reproduction-A855F7?style=for-the-badge&logoColor=ffffff&labelColor=6B21A8" alt="SmolVLA Reproduction" /> <img src="https://img.shields.io/badge/🧩%20Multi--Dataset-10B981?style=for-the-badge&logoColor=ffffff&labelColor=065F46" alt="Multi-Dataset Support" /> <img src="https://img.shields.io/badge/⚡%20Multi--GPU%20%26%20SLURM-F59E0B?style=for-the-badge&logoColor=ffffff&labelColor=92400E" alt="Multi-GPU" />
 </p>
 
-A streamlined library for pretraining vision-language-action (VLA) models on robotics datasets. Derived from LeRobot, this library focuses specifically on efficient pretraining workflows across multi-GPU setups and SLURM clusters and can be considered as an official reproduction kit for [SmolVLA](https://huggingface.co/blog/smolvla).
+A streamlined library for pretraining vision-language-action (VLA) models on robotics datasets. Derived from [LeRobot](https://github.com/huggingface/lerobot), this library focuses specifically on efficient pretraining workflows across multi-GPU setups and SLURM clusters and can be considered as an official reproduction kit for [SmolVLA](https://huggingface.co/blog/smolvla).
 
 </div>
 
@@ -16,13 +16,13 @@ A streamlined library for pretraining vision-language-action (VLA) models on rob
 
 **VLAb** is designed for researchers who want to pretrain VLA models on HuggingFace datasets efficiently. It provides:
 
-- **Pretraining-Focused Architecture**: Streamlined codebase with simulation and evaluation dependencies removed—hard-code architectural and data processing features for quick experiments, and iterate rapidly on real-world data pipelines without environment overhead
+- **Pretraining-Focused Architecture**: It includes built-in architecture and data-processing logic to let you iterate quickly on real-world datasets without environment setup overhead.
 - **SmolVLA Reproduction**: Official reproduction kit for SmolVLA pretraining—includes almost exact datasets, configurations, and workflows used to train the original model
 - **Simple Setup with Reduced Dependencies**: Single-command environment creation with `conda env create -f environment.yml`
 - **Distributed Training**: Multi-GPU and multi-node support via Accelerate, tested on single machines and SLURM clusters
 - **Multi-Dataset Support**: Train on multiple datasets simultaneously with configurable sampling strategies
 
-> **Important**: This library is optimized for pretraining. For fine-tuning and inference, we recommend using [LeRobot](https://github.com/huggingface/lerobot) with the latest updates. See the [Migration to LeRobot](#migration-to-lerobot) section for checkpoint compatibility.
+> **Important**: This library is optimized for pretraining. For fine-tuning and inference, we recommend using LeRobot with the latest updates. See the [Migration to LeRobot](#migration-to-lerobot) section for checkpoint compatibility.
 
 ---
 
@@ -52,9 +52,7 @@ conda env create -f environment.yml
 conda activate vlab
 ```
 
-> **Note**: If your system uses CUDA 12.1, edit `environment.yml` and set `pytorch-cuda=12.1` before creating the environment.
-
-### Step 2: Set Python Path
+### Step 2: Set Python Path (IMPORTANT)
 
 ```bash
 export PYTHONPATH="${PWD}/src:${PYTHONPATH}"
@@ -101,7 +99,7 @@ Train SmolVLA2 on 2 datasets with a single GPU:
 accelerate launch --config_file accelerate_configs/single_gpu.yaml \
     src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --policy.repo_id=your-username/test-model \
+    --policy.repo_id=HuggingFaceTB/SmolVLM2-500M-Video-Instruct \
     --dataset.repo_id="Beegbrain/pick_lemon_and_drop_in_bowl,Chojins/chess_game_000_white_red" \
     --dataset.video_backend=pyav \
     --output_dir="./outputs/training" \
@@ -110,6 +108,8 @@ accelerate launch --config_file accelerate_configs/single_gpu.yaml \
     --wandb.enable=true \
     --wandb.project="smolvla2-quickstart"
 ```
+
+**Note:** `--policy.repo_id` specifies the base vision-language model (SmolVLM) to use. The trained model will be saved to `--output_dir`.
 
 This will:
 1. Download the specified 2 datasets from HuggingFace Hub
@@ -145,7 +145,7 @@ community_dataset_v1/              community_dataset_v2/
 
 ### Downloading Datasets
 
-Note that it may take some time (3/4 hours), especially for the first dataset
+Note that the downloading may take some time (3/4 hours), especially for the first dataset
 
 ```bash
 # Download Community Dataset v1 (128 datasets, 11.1K episodes, 119.3 GB)
@@ -181,7 +181,7 @@ If you've pre-downloaded datasets, specify the root directory:
 accelerate launch --config_file accelerate_configs/multi_gpu.yaml \
     src/lerobot/scripts/train.py \
     --policy.type=smolvla2 \
-    --policy.repo_id=your-username/my-vla-model \
+    --policy.repo_id=HuggingFaceTB/SmolVLM2-500M-Video-Instruct \
     --dataset.repo_id="community_dataset_v2/airthebear/so100_GL,community_dataset_v2/acrampette/third_arm_01" \
     --dataset.root="/path/to/datasets" \
     --dataset.video_backend=pyav \
@@ -211,21 +211,10 @@ For distributed training on SLURM clusters, we provide example scripts:
 2. Submit the job:
 
 ```bash
-sbatch examples/scripts/train_smolvla_optimized_fresh.slurm
+sbatch examples/scripts/reproduce_smolvla.slurm
 ```
 
 For detailed documentation on SLURM scripts, dataset configuration, and advanced options, see the [Examples README](examples/README.md).
-
-## Video Backend Configuration
-
-VLAb supports multiple video backends for maximum compatibility:
-
-- **PyAV** (default, recommended): `--dataset.video_backend=pyav`
-- **OpenCV**: `--dataset.video_backend=opencv`
-- **ImageIO**: `--dataset.video_backend=imageio`
-- **TorchCodec**: Requires system FFmpeg installation
-
-We avoid pinning FFmpeg to prevent compatibility issues. If you need TorchCodec, install FFmpeg separately and ensure version compatibility.
 
 ## Migration to LeRobot
 
@@ -262,7 +251,6 @@ For additional help, open an issue on [GitHub](https://github.com/huggingface/vl
 - **[SmolVLA Fine-tuning Guide](https://huggingface.co/docs/lerobot/smolvla)**: Complete guide for fine-tuning with LeRobot
 - **[LeRobot Installation](https://huggingface.co/docs/lerobot/en/installation)**: Detailed installation instructions
 - **[Accelerate Documentation](https://huggingface.co/docs/accelerate)**: Distributed training configuration
-- **[Examples README](examples/README.md)**: Detailed documentation for SLURM scripts and advanced usage
 
 ## Citation
 
@@ -270,7 +258,7 @@ If you use this library in your research, please cite:
 
 ```bibtex
 @misc{aubakirova2025vlab,
-  author = {Dana Aubakirova and Mustafa Shukor and Jade Cholgari and Leandro von Werra},
+  author = {Dana Aubakirova, Mustafa Shukor and Jade Cholgari and Leandro von Werra},
   title = {VLAb: Your Laboratory for Pretraining VLAs},
   year = {2025},
   publisher = {GitHub},
@@ -314,4 +302,3 @@ VLAb/
 ├── environment.yml                # Conda environment specification
 └── README.md                     # This file
 ```
-

@@ -694,7 +694,6 @@ class ReplayBuffer:
                     if next_sample["episode_index"] != current_sample["episode_index"]:
                         done = True
 
-            # TODO: (azouitine) Handle truncation (using the same value as done for now)
             truncated = done
 
             # ----- 4) Next state -----
@@ -723,7 +722,6 @@ class ReplayBuffer:
                     if isinstance(val, torch.Tensor):
                         complementary_info[clean_key] = val.unsqueeze(0)  # Add batch dimension
                     else:
-                        # TODO: (azouitine) Check if it's necessary to convert to tensor
                         # For non-tensor values, use directly
                         complementary_info[clean_key] = val
 

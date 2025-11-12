@@ -53,7 +53,6 @@ def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, f
     # total step time displayed in milliseconds and its frequency
     log_dt("dt", dt_s)
 
-    # TODO(aliberts): move robot-specific logs logic in robot.print_logs()
     if not robot.robot_type.startswith("stretch"):
         for name in robot.leader_arms:
             key = f"read_leader_{name}_pos_dt_s"

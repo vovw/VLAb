@@ -612,7 +612,7 @@ class SmolVLA2Policy(PreTrainedPolicy):
             padding_side="right",
             max_length=self.config.tokenizer_max_length,
             return_tensors="pt",
-            truncation=True,  # FIXME(mshukor)
+            truncation=True,
         )
         lang_tokens = tokenized_prompt["input_ids"].to(device=device)
         lang_masks = tokenized_prompt["attention_mask"].to(device=device, dtype=torch.bool)
@@ -924,13 +924,6 @@ class VLAFlowMatching(nn.Module):
 
     def _add_pointtracker_embeddings(self, pointtrackers, pt_masks, embs, pad_masks, att_masks):
         """Add point tracker embeddings to the lists (future extension)."""
-        # TODO: Implement point tracker processing
-        # Example implementation:
-        # for pt, pt_mask in zip(pointtrackers, pt_masks):
-        #     pt_emb = self.pointtracker_encoder(pt)  # Need to add this
-        #     embs.append(pt_emb)
-        #     pad_masks.append(pt_mask)
-        #     att_masks += [0] * pt_emb.shape[1]
         pass
 
     def embed_suffix(self, state, noisy_actions, timestep):

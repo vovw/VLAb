@@ -29,7 +29,7 @@ import torch.utils
 from datasets import concatenate_datasets, load_dataset
 from huggingface_hub import HfApi, snapshot_download
 from huggingface_hub.constants import REPOCARD_NAME
-from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.errors import RevisionNotFoundError, HFValidationError
 
 from lerobot.constants import (
     ACTION,
@@ -526,8 +526,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.revision = revision if revision else CODEBASE_VERSION
         self.video_backend = video_backend if video_backend else get_safe_default_codec()
         self.delta_indices = None
-
-        # by mshukor
+        
         self.training_features = training_features
         self.discard_first_n_frames = discard_first_n_frames
         self.discard_first_idle_frames = discard_first_idle_frames
@@ -541,7 +540,6 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         self.root.mkdir(exist_ok=True, parents=True)
 
-        # more mshukor
         self.feature_keys_mapping = feature_keys_mapping.get(repo_id, None) if feature_keys_mapping else None
         self.inverse_feature_keys_mapping = (
             {v: k for k, v in self.feature_keys_mapping.items() if v} if self.feature_keys_mapping else {}
@@ -549,6 +547,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         # Load metadata
         # TODO: change
+        
         self.meta = LeRobotDatasetMetadata(
             self.repo_id,
             self.root,
@@ -565,9 +564,33 @@ class LeRobotDataset(torch.utils.data.Dataset):
         try:
             if force_cache_sync:
                 raise FileNotFoundError
-            assert all((self.root / fpath).is_file() for fpath in self.get_episodes_file_paths())
+            expected_paths = self.get_episodes_file_paths()
+            missing_paths = [fpath for fpath in expected_paths if not (self.root / fpath).is_file()]
+            if missing_paths:
+                # Check if the issue is with video paths due to key mismatch
+                video_missing = [p for p in missing_paths if "videos" in p]
+                if video_missing and len(self.meta.video_keys) > 0:
+                    # Get actual video directories that exist
+                    videos_root = self.root / "videos"
+                    actual_video_dirs = set()
+                    if videos_root.exists():
+                        for chunk_dir in videos_root.glob("chunk-*"):
+                            if chunk_dir.is_dir():
+                                for item in chunk_dir.iterdir():
+                                    if item.is_dir():
+                                        actual_video_dirs.add(item.name)
+                    
+                    expected_video_dirs = set(self.meta.video_keys)
+                    
+                    if actual_video_dirs and expected_video_dirs != actual_video_dirs:
+                        raise FileNotFoundError(
+                            f"Video directory names don't match image keys in metadata.\n"
+                            f"Expected: {sorted(expected_video_dirs)}\n"
+                            f"Found: {sorted(actual_video_dirs)}"
+                        )
+                raise FileNotFoundError(f"Missing files: {len(missing_paths)} file(s) not found")
             self.hf_dataset = self.load_hf_dataset()
-        except (AssertionError, FileNotFoundError, NotADirectoryError):
+        except (AssertionError, NotADirectoryError):
             self.revision = get_safe_version(self.repo_id, self.revision)
             self.download_episodes(download_videos)
             self.hf_dataset = self.load_hf_dataset()
@@ -1342,7 +1365,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
             f"Got {len(sampling_weights)} weights for {len(repo_ids)} datasets."
         )
         for i, repo_id in enumerate(repo_ids):
-            try:
+            try: 
                 # delta_timestamps = resolve_delta_timestamps(cfg.policy, ds_meta)
                 _datasets.append(
                     LeRobotDataset(

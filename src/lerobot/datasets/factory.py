@@ -84,6 +84,7 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
     image_transforms = (
         ImageTransforms(cfg.dataset.image_transforms) if cfg.dataset.image_transforms.enable else None
     )
+
     if "," in cfg.dataset.repo_id:
         repo_id = cfg.dataset.repo_id.split(",")
         repo_id = [r for r in repo_id if r]
@@ -96,11 +97,14 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
         root = getattr(cfg.dataset, "root", None)
         # If root is provided, construct the full path as root/repo_id
         dataset_root = Path(root) / cfg.dataset.repo_id if root else None
+        # If root is provided, use local_files_only=True to prevent downloads from HuggingFace
+        local_files_only = root is not None
         ds_meta = LeRobotDatasetMetadata(
             cfg.dataset.repo_id,
             root=dataset_root,
             feature_keys_mapping=feature_keys_mapping,
             revision=revision,
+            local_files_only=local_files_only,
         )
         delta_timestamps = resolve_delta_timestamps(cfg.policy, ds_meta)
         dataset = LeRobotDataset(
@@ -112,6 +116,7 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
             revision=revision,
             video_backend=cfg.dataset.video_backend,
             download_videos=True,
+            local_files_only=local_files_only,
             feature_keys_mapping=feature_keys_mapping,
             max_action_dim=cfg.dataset.max_action_dim,
             max_state_dim=cfg.dataset.max_state_dim,
@@ -122,13 +127,18 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
         delta_timestamps = {}
         episodes = {}
         root = getattr(cfg.dataset, "root", None)
+        # If root is provided, use local_files_only=True to prevent downloads from HuggingFace
+
+        local_files_only = root is not None
         for i in range(len(repo_id)):
             # For multi-dataset with root, each dataset is at root/repo_id[i]
             dataset_root = Path(root) / repo_id[i] if root else None
+
             ds_meta = LeRobotDatasetMetadata(
                 repo_id[i],
                 root=dataset_root,
                 feature_keys_mapping=feature_keys_mapping,
+                local_files_only=local_files_only,
             )  # FIXME(mshukor): ?
             delta_timestamps[repo_id[i]] = resolve_delta_timestamps(cfg.policy, ds_meta)
             episodes[repo_id[i]] = EPISODES_DATASET_MAPPING.get(repo_id[i], cfg.dataset.episodes)
@@ -144,6 +154,7 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
             image_transforms=image_transforms,
             video_backend=cfg.dataset.video_backend,
             download_videos=True,
+            local_files_only=local_files_only,
             sampling_weights=sampling_weights,
             feature_keys_mapping=feature_keys_mapping,
             max_action_dim=cfg.policy.max_action_dim,

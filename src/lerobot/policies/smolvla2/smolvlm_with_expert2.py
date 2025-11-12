@@ -166,7 +166,7 @@ class SmolVLMWithExpertModel(nn.Module):
                 exclude_modules=[
                     "lm_expert",
                     "model.lm_expert.model.layers",
-                ],  # FIXME(mshukor): this does not work for now
+                ],
             )
             self.lora_config = lora_config
             # Apply LoRA and ensure only LoRA parameters are trainable
@@ -174,7 +174,6 @@ class SmolVLMWithExpertModel(nn.Module):
                 self.get_vlm_model().text_model = get_peft_model(self.get_vlm_model().text_model, lora_config)
             else:
                 self.vlm = get_peft_model(self.vlm, lora_config)
-            # assert config.train_expert_only, "Backbone should be frozen and only lora parameters are " # FIXME(mshukor): handle this here?
             for name, param in self.vlm.named_parameters():
                 if (
                     "lora" in name and "text_model.model.layers.17" not in name
@@ -322,10 +321,6 @@ class SmolVLMWithExpertModel(nn.Module):
                     "value_states": value_states,
                 }
             else:
-                # TODO here, some optimization can be done - similar to a `StaticCache` we can declare the `max_len` before.
-                # so we create an empty cache, with just one cuda malloc, and if (in autoregressive case) we reach
-                # the max len, then we (for instance) double the cache size. This implementation already exists
-                # in `transformers`. (molbap)
                 key_states = torch.cat([past_key_values[layer_idx]["key_states"], key_states], dim=1)
                 value_states = torch.cat([past_key_values[layer_idx]["value_states"], value_states], dim=1)
 
@@ -395,10 +390,6 @@ class SmolVLMWithExpertModel(nn.Module):
                     "value_states": value_states,
                 }
             else:
-                # TODO here, some optimization can be done - similar to a `StaticCache` we can declare the `max_len` before.
-                # so we create an empty cache, with just one cuda malloc, and if (in autoregressive case) we reach
-                # the max len, then we (for instance) double the cache size. This implementation already exists
-                # in `transformers`. (molbap)
                 key_states = past_key_values[layer_idx]["key_states"]
                 value_states = past_key_values[layer_idx]["value_states"]
 
@@ -477,9 +468,6 @@ class SmolVLMWithExpertModel(nn.Module):
         models = [self.get_vlm_model().text_model, self.lm_expert]
         model_layers = self.get_model_layers(models)
         for hidden_states in inputs_embeds:
-            # TODO this is very inefficient
-            # dtype is always the same, batch size too (if > 1 len)
-            # device could be trickier in multi gpu edge cases but that's it
             if hidden_states is None:
                 continue
             batch_size = hidden_states.shape[0]

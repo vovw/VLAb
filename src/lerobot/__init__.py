@@ -48,9 +48,6 @@ import itertools
 
 from lerobot.__version__ import __version__  # noqa: F401
 
-# TODO(rcadene): Improve policies and envs. As of now, an item in `available_policies`
-# refers to a yaml file AND a modeling name. Same for `available_envs` which refers to
-# a yaml file AND a environment name. The difference should be more obvious.
 available_tasks_per_env = {
     "aloha": [
         "AlohaInsertion-v0",
@@ -72,8 +69,6 @@ available_datasets_per_env = {
         "lerobot/aloha_sim_transfer_cube_human_image",
         "lerobot/aloha_sim_transfer_cube_scripted_image",
     ],
-    # TODO(alexander-soare): Add "lerobot/pusht_keypoints". Right now we can't because this is too tightly
-    # coupled with tests.
     "pusht": ["lerobot/pusht", "lerobot/pusht_image"],
     "xarm": [
         "lerobot/xarm_lift_medium",
