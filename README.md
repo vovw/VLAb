@@ -39,6 +39,7 @@ A streamlined library for pretraining vision-language-action (VLA) models on rob
 - [Troubleshooting](#troubleshooting)
 - [Additional Resources](#additional-resources)
 - [Citation](#citation)
+- [License](#license)
 - [Project Structure](#project-structure)
 
 ---
@@ -280,6 +281,10 @@ And the SmolVLA paper:
   primaryClass  = {cs.RO}
 }
 ```
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
 ## Project Structure
 
